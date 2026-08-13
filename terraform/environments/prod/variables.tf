@@ -57,9 +57,35 @@ variable "max_node_count" {
   type        = number
 }
 
+variable "eks_public_endpoint_access" {
+  description = "Whether to enable the public EKS API endpoint for this environment"
+  type        = bool
+  default     = false
+}
+
 variable "eks_public_access_cidrs" {
-  description = "CIDR blocks allowed to access the EKS public endpoint"
+  description = "CIDR blocks allowed to access the EKS public endpoint when enabled"
   type        = list(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for cidr in var.eks_public_access_cidrs : can(cidrnetmask(cidr))
+    ])
+    error_message = "Each EKS public access CIDR must be a valid IPv4 CIDR block."
+  }
+
+  validation {
+    condition     = var.eks_public_endpoint_access == false || length(var.eks_public_access_cidrs) > 0
+    error_message = "eks_public_access_cidrs must include at least one approved CIDR when eks_public_endpoint_access is true."
+  }
+
+  validation {
+    condition = alltrue([
+      for cidr in var.eks_public_access_cidrs : cidr != "0.0.0.0/0"
+    ])
+    error_message = "Do not allow unrestricted 0.0.0.0/0 access to the EKS public endpoint."
+  }
 }
 
 variable "eks_log_retention_days" {

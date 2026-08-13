@@ -65,7 +65,7 @@ module "eks" {
   min_size                  = var.min_node_count
   max_size                  = var.max_node_count
   enable_container_insights = true
-  public_endpoint_access    = true
+  public_endpoint_access    = var.eks_public_endpoint_access
   public_access_cidrs       = var.eks_public_access_cidrs
   log_retention_days        = var.eks_log_retention_days
   tags                      = local.common_tags

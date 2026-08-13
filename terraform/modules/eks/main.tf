@@ -127,6 +127,20 @@ resource "aws_eks_cluster" "main" {
   )
 }
 
+resource "aws_launch_template" "node_group" {
+  name_prefix = "${var.cluster_name}-node-"
+
+  vpc_security_group_ids = [var.eks_node_sg_id]
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = merge(
+      var.tags,
+      { Name = "${var.cluster_name}-node" }
+    )
+  }
+}
+
 # EKS Node Group
 resource "aws_eks_node_group" "main" {
   cluster_name    = aws_eks_cluster.main.name
@@ -134,6 +148,11 @@ resource "aws_eks_node_group" "main" {
   node_role_arn   = aws_iam_role.eks_node_role.arn
   subnet_ids      = var.private_app_subnet_ids
   instance_types  = var.node_instance_types
+
+  launch_template {
+    id      = aws_launch_template.node_group.id
+    version = aws_launch_template.node_group.latest_version
+  }
 
   scaling_config {
     desired_size = var.desired_size

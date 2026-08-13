@@ -70,7 +70,7 @@ variable "eks_public_access_cidrs" {
 
   validation {
     condition = alltrue([
-      for cidr in var.eks_public_access_cidrs : can(cidrhost(cidr, 0))
+      for cidr in var.eks_public_access_cidrs : can(cidrnetmask(cidr))
     ])
     error_message = "Each EKS public access CIDR must be a valid IPv4 CIDR block."
   }

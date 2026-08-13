@@ -130,7 +130,10 @@ resource "aws_eks_cluster" "main" {
 resource "aws_launch_template" "node_group" {
   name_prefix = "${var.cluster_name}-node-"
 
-  vpc_security_group_ids = [var.eks_node_sg_id]
+  vpc_security_group_ids = [
+    var.eks_node_sg_id,
+    aws_eks_cluster.main.vpc_config[0].cluster_security_group_id,
+  ]
 
   tag_specifications {
     resource_type = "instance"

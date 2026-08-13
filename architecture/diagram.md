@@ -16,7 +16,7 @@ The key idea is that only the load balancer is exposed to the internet. The appl
 2. The ALB forwards traffic to EKS workloads running in private application subnets.
 3. The application connects to RDS PostgreSQL in private database subnets.
 4. EKS nodes use a NAT gateway for outbound access to AWS services and the internet.
-5. Terraform manages infrastructure state remotely in S3 with a DynamoDB lock table.
+5. Terraform manages infrastructure state remotely in S3 with an S3 lockfile per environment.
 
 ## Topology Diagram
 
@@ -45,7 +45,7 @@ flowchart TB
 
     subgraph Ops["Infrastructure State"]
         tf["Terraform CLI"]
-        state["S3 State Bucket\nDynamoDB Lock"]
+        state["S3 State Bucket\nS3 Lockfiles"]
     end
 
     user -->|HTTPS| alb
@@ -63,4 +63,4 @@ flowchart TB
 - Public subnet: ALB and NAT are placed here.
 - Private app subnets: EKS worker nodes run here.
 - Private DB subnets: RDS PostgreSQL stays here with no public exposure.
-- Terraform state: Remote state is stored in S3 and protected by DynamoDB locking.
+- Terraform state: Remote state is stored in S3 and protected by per-environment S3 lockfiles. This portfolio assumes a fresh bootstrap and does not provision a legacy DynamoDB lock table.

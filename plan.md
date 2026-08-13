@@ -30,14 +30,19 @@ Recommendation: Execute a security-first hardening wave across Terraform + docs,
 Why now: This sequencing reduces real risk first and then ensures those protections stay enforced through automation.
 Tradeoff: Advanced capabilities (integration tests, policy-as-code gate, apply orchestration) are deferred to a second wave.
 
+**Current status snapshot**
+- Phase 0: Completed. The work was classified as major, a dedicated branch was created, and the branch was merged and then cleaned up locally.
+- Phase 1: Completed and validated. EKS public access now defaults to disabled, public endpoint CIDR input is validated as IPv4-only, and node-group networking preserves required EKS control-plane traffic while keeping the app path restricted.
+- Validation evidence: `terraform init -backend=false`, `terraform fmt -check`, and `terraform validate` were run successfully for `dev`, `staging`, and `prod` with the installed Terraform CLI.
+
 **Execution phases and steps**
-1. Phase 0: Branching and guardrails (blocks all later phases)
+1. Phase 0: Branching and guardrails (blocks all later phases) - Completed
 - Classify work as major and create/switch branch before implementation.
 - Dedicated branch decision is approved: create or switch to feature/production-grade-terraform-ci before any implementation.
 - Confirm branch protection target branches and required checks naming.
 - Define rollback strategy at phase level: each phase must be mergeable independently.
 
-2. Phase 1: Critical Terraform hardening (security-first)
+2. Phase 1: Critical Terraform hardening (security-first) - Completed
 - Restrict EKS API exposure: remove permissive defaults and require explicit CIDRs per environment, with production-safe validation.
 - Introduce environment-specific production posture overrides (prod HA/protection controls, retention policies) and align README tables to actual values.
 - Add variable validation for high-risk inputs (CIDRs, counts/sizes, retention bounds, instance type format, email/ARN patterns where appropriate).
@@ -45,14 +50,19 @@ Tradeoff: Advanced capabilities (integration tests, policy-as-code gate, apply o
 - Audit every security-group rule for directionality, source/destination semantics, and actual traffic path.
 - Validate and enforce intended connectivity only: internet -> ALB (80/443), ALB -> EKS workloads (8080), EKS workloads -> RDS (5432).
 - Tighten or remove security-group rules where broad east-west access is unnecessary.
+- Ensure node-group SG attachment preserves required EKS control-plane and node-to-node traffic while maintaining the app path restriction.
 - Dependency: none.
 
-3. Phase 2: Environment contract and onboarding reliability (depends on Phase 1)
+3. Phase 2: Environment contract and onboarding reliability (depends on Phase 1) - In progress
 - Add terraform.tfvars.example files for dev/staging/prod with safe, realistic placeholders and guidance.
 - Remove placeholder ambiguity in backend setup docs and add deterministic account-ID replacement instructions.
 - Add explicit environment matrix for expected drift between dev/staging/prod and enforce through documented defaults.
+- Make each environment's documented VPC CIDR an explicit Terraform input and validate that it is an IPv4 /16 range.
+- Align staging and prod subnet ranges with their environment VPC CIDRs to prevent overlapping network contracts.
+- Document PowerShell onboarding and the backend placeholder replacement requirement.
+- Use S3 lockfiles for fresh bootstraps and remove the unused DynamoDB locking resource from the baseline.
 
-4. Phase 3: Portfolio-grade operations documentation (parallel with Phase 4 after Phase 1)
+4. Phase 3: Portfolio-grade operations documentation (parallel with Phase 4 after Phase 2)
 - Deliver a lean 5-doc set to avoid documentation sprawl while preserving production credibility.
 - Expand root README with architecture summary, environment matrix, and quickstart links.
 - Add/refresh Terraform operator guide with setup, plan/apply, rollback basics.
@@ -60,7 +70,7 @@ Tradeoff: Advanced capabilities (integration tests, policy-as-code gate, apply o
 - Add one consolidated operations runbook doc (incident response, backup/restore, troubleshooting, deployment validation).
 - Add one CI operations guide (pipeline behavior, required checks, failure triage, ownership).
 
-5. Phase 4: General CI pipeline (GitHub Actions, checks+plan only) (depends on Phase 1, parallel with late Phase 3)
+5. Phase 4: General CI pipeline (GitHub Actions, checks+plan only) (depends on Phase 2, parallel with late Phase 3)
 - Create unified CI workflow triggered on PR and main pushes.
 - Jobs: terraform fmt check, terraform validate per environment, tflint, security scanning (tfsec/checkov), terraform plan per environment.
 - Upload plan artifacts and scanner reports with retention controls.
@@ -106,10 +116,10 @@ Tradeoff: Advanced capabilities (integration tests, policy-as-code gate, apply o
 - terraform/environments/prod/terraform.tfvars.example
 
 **Verification strategy**
-1. Local quality gate by environment directory: terraform fmt -check, terraform init -backend=false, terraform validate.
+1. Local quality gate by environment directory: terraform fmt -check, terraform init -backend=false, terraform validate. This is the canonical validation path because the portfolio is not deployed.
 2. Static checks: tflint (with repo config), tfsec/checkov baseline; review only high/critical blockers initially.
 3. Network path checks: verify SG rule directionality and confirm only intended ports/flows are possible for ALB -> EKS -> RDS.
-4. Plan checks: terraform plan for dev/staging/prod with sanitized tfvars examples adapted to sandbox values.
+4. Optional plan checks: terraform plan for dev/staging/prod with sanitized tfvars examples adapted to a real sandbox account; no plan or apply is required for the no-deployment portfolio baseline.
 5. Documentation consistency audit: ensure all production claims in README/terraform README match actual Terraform defaults and overrides.
 6. CI dry run: open test PR and verify required checks, artifact upload, and failure messaging quality.
 7. CI boundary check: confirm workflow contains no apply job and uses no deployment credentials.
@@ -145,6 +155,7 @@ Tradeoff: Advanced capabilities (integration tests, policy-as-code gate, apply o
 - CI remains non-deploying: no apply job and no deployment credentials.
 - Major-work branch gating is approved and required before implementation.
 - Prioritization is strict security-first: Phase 1 must meet exit criteria before downstream implementation phases proceed.
+- State bootstrap assumes a fresh installation: S3 state, KMS encryption, versioning, and S3 lockfiles are included; migration of existing DynamoDB-backed state is out of scope.
 
 **Phase exit criteria**
 1. Phase 0 exit:
@@ -158,6 +169,8 @@ Tradeoff: Advanced capabilities (integration tests, policy-as-code gate, apply o
 3. Phase 2 exit:
 - terraform.tfvars.example files exist for dev, staging, and prod with safe placeholders.
 - Environment matrix is consistent across docs and Terraform defaults/overrides.
+- Each environment passes `terraform fmt -check` and `terraform validate` with its example variables file supplied.
+- Staging and prod subnet CIDRs are inside their matching VPC CIDRs and do not overlap dev.
 
 4. Phase 3 exit:
 - Lean documentation set is published and cross-linked from root README.

@@ -15,7 +15,7 @@ terraform/
 │   ├── rds/             # RDS PostgreSQL instance, KMS encryption, native password management
 │   ├── iam/             # IRSA-ready IAM role for application workloads
 │   ├── secrets-manager/ # Application secrets stored in Secrets Manager
-│   ├── remote-state/    # S3 backend bucket, DynamoDB locking table (bootstrap module)
+│   ├── remote-state/    # S3 backend bucket and KMS key (fresh bootstrap module)
 │   └── observability/   # CloudWatch alarms, SNS topics, CloudTrail, AWS Budgets
 ├── environments/        # Environment-specific configurations
 │   ├── dev/            # Development environment
@@ -83,7 +83,7 @@ All resources use the native `hashicorp/aws` provider directly - no community mo
 
 ### remote-state
 - Creates S3 bucket for Terraform state with versioning and KMS encryption
-- Creates DynamoDB table for state locking
+- Creates the S3 state bucket and KMS key used by the S3 backend and its lockfiles
 - All resources have `prevent_destroy = true` (bootstrap module)
 
 ### observability
@@ -99,12 +99,23 @@ See [Environment Separation](../README.md#environment-separation) in the root RE
 
 ## Getting Started
 
-See [Bootstrap](../README.md#bootstrap) and [Deployment](../README.md#deployment) in the root README for prerequisites, remote-state bootstrap, and the full `init` / `plan` / `apply` workflow per environment.
+See [Bootstrap](../README.md#bootstrap) and [Deployment](../README.md#deployment) in the root README for prerequisites, remote-state bootstrap, and the full AWS-backed `init` / `plan` / `apply` workflow per environment.
+
+To create local inputs, copy the matching example file before initializing Terraform. In PowerShell:
+
+```powershell
+Copy-Item terraform.tfvars.example terraform.tfvars
+```
+
+Then replace the sample certificate ARN and alert address, and review the environment-specific CIDR and sizing values before running `terraform init`.
+
+For no-deployment validation, run `terraform init -backend=false` followed by `terraform validate` in each environment. A normal `terraform init` and `terraform plan` require an AWS account, configured credentials, and a bootstrapped S3 backend.
 
 ## Important Files
 
-- **backend.tf**: S3 state backend configuration. Update `ACCOUNT_ID` with your AWS account ID.
-- **terraform.tfvars**: Environment-specific values. Keep these files free of plaintext secrets.
+- **backend.tf**: S3 state backend configuration. Replace the placeholder `terraform-state-<ACCOUNT_ID>` with your 12-digit AWS account ID exactly; example: `terraform-state-123456789012`.
+- **terraform.tfvars.example**: Safe, copyable defaults for each environment. Copy the file to `terraform.tfvars` locally and replace the sample values with your actual account and certificate details.
+- **terraform.tfvars**: Environment-specific values. Keep these files free of plaintext secrets and do not commit them to source control.
 - **.terraform.lock.hcl**: Provider dependency lock file. **Commit this to version control** for consistency.
 
 ## Limitations & Next Steps

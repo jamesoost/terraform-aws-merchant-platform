@@ -55,7 +55,7 @@ resource "aws_security_group" "eks_nodes" {
   )
 }
 
-# EKS nodes inbound: from ALB
+# EKS nodes inbound: from ALB on application port only
 resource "aws_security_group_rule" "eks_inbound_from_alb" {
   type                     = "ingress"
   from_port                = 8080
@@ -63,18 +63,18 @@ resource "aws_security_group_rule" "eks_inbound_from_alb" {
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.alb.id
   security_group_id        = aws_security_group.eks_nodes.id
-  description              = "From ALB"
+  description              = "Application traffic from ALB to EKS nodes"
 }
 
-# EKS nodes inbound: from self (kubelet, node-to-node)
+# EKS nodes inbound: Kubernetes control plane / intra-node needs limited TCP range
 resource "aws_security_group_rule" "eks_inbound_self" {
   type              = "ingress"
-  from_port         = 0
+  from_port         = 1025
   to_port           = 65535
   protocol          = "tcp"
   self              = true
   security_group_id = aws_security_group.eks_nodes.id
-  description       = "Node-to-node and kubelet communication"
+  description       = "Node-to-node and kubelet communication within the node group"
 }
 
 # EKS nodes outbound: to RDS
@@ -96,7 +96,7 @@ resource "aws_security_group_rule" "eks_outbound_https" {
   protocol          = "tcp"
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = aws_security_group.eks_nodes.id
-  description       = "HTTPS to internet (via NAT)"
+  description       = "HTTPS to AWS APIs and upstream registries via NAT"
 }
 
 # RDS Security Group

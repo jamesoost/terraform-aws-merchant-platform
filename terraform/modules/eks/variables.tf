@@ -55,15 +55,34 @@ variable "enable_container_insights" {
 }
 
 variable "public_endpoint_access" {
-  description = "Enable public endpoint access"
+  description = "Enable public endpoint access. Keep this disabled unless an approved network is explicitly allowed."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "public_access_cidrs" {
-  description = "CIDR blocks allowed to access the public endpoint"
+  description = "CIDR blocks allowed to access the public endpoint when public_endpoint_access is enabled."
   type        = list(string)
-  default     = ["0.0.0.0/0"]
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for cidr in var.public_access_cidrs : can(cidrhost(cidr, 0))
+    ])
+    error_message = "Each EKS public endpoint CIDR must be a valid IPv4 CIDR block."
+  }
+
+  validation {
+    condition     = var.public_endpoint_access == false || length(var.public_access_cidrs) > 0
+    error_message = "public_access_cidrs must contain at least one approved CIDR when public_endpoint_access is true."
+  }
+
+  validation {
+    condition = alltrue([
+      for cidr in var.public_access_cidrs : cidr != "0.0.0.0/0"
+    ])
+    error_message = "Do not allow unrestricted 0.0.0.0/0 access to the EKS public endpoint. Restrict it to trusted networks only."
+  }
 }
 
 variable "log_retention_days" {

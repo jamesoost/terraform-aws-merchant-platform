@@ -136,7 +136,7 @@ terraform -chdir=terraform/environments/prod init -backend=false -input=false
 terraform -chdir=terraform/environments/prod validate
 ```
 
-An AWS-backed `terraform plan` is optional for this repo. It requires AWS credentials, a bootstrapped S3 state bucket, a real account ID in the backend, and environment-specific `terraform.tfvars` files. `plan` is review evidence only; it does not deploy resources.
+An AWS-backed `terraform plan` cannot be run as part of no-account validation. Before committing or deploying infrastructure changes, run it with AWS credentials, a bootstrapped S3 state bucket, a real account ID in the backend, and environment-specific `terraform.tfvars` files. Review the plan especially carefully for potentially destructive networking changes such as the environment-specific VPC CIDRs. `plan` is review evidence only; it does not deploy resources.
 
 ## Deployment
 
@@ -283,7 +283,8 @@ aws secretsmanager get-secret-value \
 Resources marked with `lifecycle { prevent_destroy = true }`:
 - RDS instance (prod) - prevents accidental database deletion
 - S3 state bucket - prevents loss of Terraform state
-- S3 lockfiles - prevent concurrent state operations for each environment
+
+S3 lockfiles are transient backend objects used to coordinate concurrent state operations. They are not Terraform resources and are not protected by `prevent_destroy`.
 
 If deletion is necessary, manually remove the lifecycle rule first:
 ```bash

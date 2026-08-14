@@ -84,7 +84,7 @@ All resources use the native `hashicorp/aws` provider directly - no community mo
 ### remote-state
 - Creates S3 bucket for Terraform state with versioning and KMS encryption
 - Creates the S3 state bucket and KMS key used by the S3 backend and its lockfiles
-- All resources have `prevent_destroy = true` (bootstrap module)
+- The S3 state bucket has `prevent_destroy = true`; the KMS key and supporting S3 configuration resources do not currently have that lifecycle guard
 
 ### observability
 - CloudWatch alarms: RDS CPU, storage, ALB errors
@@ -114,7 +114,7 @@ For no-deployment validation, run `terraform init -backend=false` followed by `t
 ## Important Files
 
 - **backend.tf**: S3 state backend configuration. Replace the placeholder `terraform-state-<ACCOUNT_ID>` with your 12-digit AWS account ID exactly; example: `terraform-state-123456789012`.
-- **terraform.tfvars.example**: Safe, copyable defaults for each environment. Copy the file to `terraform.tfvars` locally and replace the sample values with your actual account and certificate details.
+- **terraform.tfvars.example**: Safe, copyable defaults for each environment. Copy the file to `terraform.tfvars` locally and replace the sample certificate and alerting details with values for your environment.
 - **terraform.tfvars**: Environment-specific values. Keep these files free of plaintext secrets and do not commit them to source control.
 - **.terraform.lock.hcl**: Provider dependency lock file. **Commit this to version control** for consistency.
 

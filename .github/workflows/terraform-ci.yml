@@ -1,0 +1,70 @@
+name: Terraform CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  TF_IN_AUTOMATION: true
+  TF_INPUT: false
+  AWS_EC2_METADATA_DISABLED: true
+
+jobs:
+  format:
+    name: Terraform format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.0
+      - run: terraform fmt -check -recursive
+
+  validate:
+    name: Validate (${{ matrix.environment }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [dev, staging, prod]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.0
+      - working-directory: terraform/environments/${{ matrix.environment }}
+        run: terraform init -backend=false -input=false
+      - working-directory: terraform/environments/${{ matrix.environment }}
+        run: terraform validate
+
+  lint:
+    name: TFLint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.58.1
+      - run: tflint --init --config terraform/tflint.hcl
+      - run: tflint --recursive --config terraform/tflint.hcl
+
+  security:
+    name: Security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: terraform
+          format: sarif
+          additional_args: --out tfsec.sarif
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tfsec-report
+          path: terraform/tfsec.sarif
+          retention-days: 14

@@ -1,0 +1,4 @@
+* @platform-infrastructure
+terraform/** @platform-infrastructure
+.github/** @platform-infrastructure
+docs/security-and-threat-model.md @platform-infrastructure @security

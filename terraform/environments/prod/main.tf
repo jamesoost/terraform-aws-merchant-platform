@@ -17,11 +17,11 @@ locals {
 module "vpc" {
   source = "../../modules/vpc"
 
-  vpc_cidr                 = "10.0.0.0/16"
+  vpc_cidr                 = var.vpc_cidr
   az_list                  = ["eu-west-1a", "eu-west-1b"]
-  public_subnet_cidrs      = ["10.0.0.0/24", "10.0.1.0/24"]
-  private_app_subnet_cidrs = ["10.0.10.0/24", "10.0.11.0/24"]
-  private_db_subnet_cidrs  = ["10.0.20.0/24", "10.0.21.0/24"]
+  public_subnet_cidrs      = ["10.2.0.0/24", "10.2.1.0/24"]
+  private_app_subnet_cidrs = ["10.2.10.0/24", "10.2.11.0/24"]
+  private_db_subnet_cidrs  = ["10.2.20.0/24", "10.2.21.0/24"]
   single_nat_gateway       = var.single_nat_gateway
   enable_flow_logs         = true
   flow_log_retention_days  = var.vpc_flow_log_retention_days

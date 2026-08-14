@@ -9,6 +9,16 @@ variable "environment" {
   type        = string
 }
 
+variable "vpc_cidr" {
+  description = "CIDR block for the environment VPC"
+  type        = string
+
+  validation {
+    condition     = var.vpc_cidr == "10.0.0.0/16"
+    error_message = "dev vpc_cidr must be the approved 10.0.0.0/16 CIDR block."
+  }
+}
+
 variable "certificate_arn" {
   description = "ACM certificate ARN for HTTPS"
   type        = string

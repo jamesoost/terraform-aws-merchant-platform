@@ -1,0 +1,30 @@
+aws_region = "eu-west-1"
+environment = "staging"
+# Replace this ACM ARN with the certificate for your environment.
+vpc_cidr = "10.1.0.0/16"
+certificate_arn = "arn:aws:acm:eu-west-1:123456789012:certificate/replace-with-your-cert-arn"
+# Use a monitored mailbox or distribution list for this environment.
+alarm_email = "staging-alerts@example.com"
+
+single_nat_gateway = true
+vpc_flow_log_retention_days = 60
+
+kubernetes_version = "1.31"
+node_instance_types = ["t3.large"]
+desired_node_count = 2
+min_node_count = 1
+max_node_count = 5
+eks_public_endpoint_access = false
+eks_public_access_cidrs = []
+eks_log_retention_days = 90
+alb_enable_deletion_protection = true
+
+rds_instance_class = "db.t3.medium"
+rds_allocated_storage = 50
+rds_multi_az = false
+rds_deletion_protection = false
+rds_performance_insights = true
+
+monthly_budget = 1500
+cloudtrail_object_lock_enabled = false
+cloudtrail_object_lock_retention_days = 90

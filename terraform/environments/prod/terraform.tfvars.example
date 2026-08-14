@@ -1,0 +1,30 @@
+aws_region = "eu-west-1"
+environment = "prod"
+# Replace this ACM ARN with the certificate for your environment.
+vpc_cidr = "10.2.0.0/16"
+certificate_arn = "arn:aws:acm:eu-west-1:123456789012:certificate/replace-with-your-cert-arn"
+# Use a monitored mailbox or distribution list for this environment.
+alarm_email = "prod-alerts@example.com"
+
+single_nat_gateway = false
+vpc_flow_log_retention_days = 90
+
+kubernetes_version = "1.31"
+node_instance_types = ["m5.large"]
+desired_node_count = 3
+min_node_count = 2
+max_node_count = 10
+eks_public_endpoint_access = false
+eks_public_access_cidrs = []
+eks_log_retention_days = 90
+alb_enable_deletion_protection = true
+
+rds_instance_class = "db.r6g.large"
+rds_allocated_storage = 100
+rds_multi_az = true
+rds_deletion_protection = true
+rds_performance_insights = true
+
+monthly_budget = 5000
+cloudtrail_object_lock_enabled = true
+cloudtrail_object_lock_retention_days = 365

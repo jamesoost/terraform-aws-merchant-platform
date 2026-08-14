@@ -15,7 +15,7 @@ This repository contains Infrastructure as Code (Terraform) for a merchant platf
 - **Load balancing**: Internet-facing Application Load Balancer with HTTPS termination and ALB access logs
 - **Security**: Least-privilege security groups, Network ACLs, VPC Flow Logs, encryption at rest (KMS), IRSA-ready IAM access, Secrets Manager-backed application secrets
 - **Observability**: CloudWatch Container Insights, EKS audit logs, CloudTrail, VPC Flow Logs, metric alarms, SNS notifications
-- **State management**: S3 backend with DynamoDB locking and encryption
+- **State management**: S3 backend with S3 lockfiles and encryption
 - **Cost management**: AWS Budgets with spend alerts, Cost Anomaly Detection
 
 ## Architecture
@@ -50,7 +50,7 @@ This platform assumes card data is **never stored or transmitted** by the applic
 
 ### Local tools
 
-- Terraform >= 1.5
+- Terraform >= 1.10
 - AWS CLI v2 (with credentials configured)
 - `kubectl` >= 1.24
 - `aws-iam-authenticator` (installed automatically by aws-cli)
@@ -60,7 +60,7 @@ This platform assumes card data is **never stored or transmitted** by the applic
 - **Route 53 hosted zone** - must pre-exist for your merchant domain
 - **ACM certificate** - must pre-exist, pointing to your domain (TLS termination on ALB)
 - **IAM principal** with permissions:
-  - EC2, EKS, RDS, ALB, IAM, KMS, S3, DynamoDB, CloudWatch, CloudTrail, VPC, ECR, Secrets Manager, SNS
+  - EC2, EKS, RDS, ALB, IAM, KMS, S3, CloudWatch, CloudTrail, VPC, ECR, Secrets Manager, SNS
   - Recommend: start with `AdministratorAccess` for initial bootstrap; narrow down post-deployment
 
 ### AWS region & AZs
@@ -72,6 +72,8 @@ This platform assumes card data is **never stored or transmitted** by the applic
 
 ### Step 1: Initialize remote state (one-time)
 
+This step is only needed when you intentionally create the fresh AWS bootstrap. Nothing in this repository is deployed by the validation workflow.
+
 ```bash
 cd terraform/modules/remote-state
 terraform init
@@ -81,37 +83,60 @@ terraform apply tfplan
 
 This creates:
 - S3 bucket for remote state
-- DynamoDB table for state locking
 - KMS key for S3 encryption
 
-Output will display the S3 bucket name and DynamoDB table name.
+Output will display the S3 bucket name and KMS key details.
 
 ### Step 2: Configure backend for dev/staging/prod
 
-Update `terraform/environments/{dev,staging,prod}/backend.tf`:
+Update `terraform/environments/{dev,staging,prod}/backend.tf` using your 12-digit AWS account ID. Replace the placeholder exactly as shown below; do not leave braces or any other text in place.
 
 ```hcl
 terraform {
   backend "s3" {
-    bucket         = "terraform-state-{ACCOUNT_ID}"  # from Step 1 output
+    bucket         = "terraform-state-<ACCOUNT_ID>"  # Example: terraform-state-123456789012
     key            = "dev/terraform.tfstate"
     region         = "eu-west-1"
-    dynamodb_table = "terraform-locks"
+    use_lockfile   = true
     encrypt        = true
   }
 }
 ```
 
+Use the same exact pattern for each environment: `terraform-state-<ACCOUNT_ID>`, where `<ACCOUNT_ID>` is your AWS account number without spaces or punctuation.
+
 ### Step 3: Deploy per environment
 
 ```bash
 cd terraform/environments/dev
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with the real ACM ARN, alert address, and approved values.
 terraform init
 terraform plan -out=tfplan
 terraform apply tfplan
 ```
 
 Repeat for `staging/` and `prod/`.
+
+On Windows PowerShell, use `Copy-Item terraform.tfvars.example terraform.tfvars` instead of `cp`.
+
+### No-deployment validation
+
+When no AWS account or remote state bucket is available, use the offline checks below. They validate Terraform syntax, modules, provider constraints, and variable definitions without contacting AWS or creating resources:
+
+```powershell
+terraform fmt -check -recursive
+terraform -chdir=terraform/modules/remote-state init -backend=false -input=false
+terraform -chdir=terraform/modules/remote-state validate
+terraform -chdir=terraform/environments/dev init -backend=false -input=false
+terraform -chdir=terraform/environments/dev validate
+terraform -chdir=terraform/environments/staging init -backend=false -input=false
+terraform -chdir=terraform/environments/staging validate
+terraform -chdir=terraform/environments/prod init -backend=false -input=false
+terraform -chdir=terraform/environments/prod validate
+```
+
+An AWS-backed `terraform plan` cannot be run as part of no-account validation. Before committing or deploying infrastructure changes, run it with AWS credentials, a bootstrapped S3 state bucket, a real account ID in the backend, and environment-specific `terraform.tfvars` files. Review the plan especially carefully for potentially destructive networking changes such as the environment-specific VPC CIDRs. `plan` is review evidence only; it does not deploy resources.
 
 ## Deployment
 
@@ -120,7 +145,7 @@ Repeat for `staging/` and `prod/`.
 - [ ] ACM certificate ARN obtained (use `aws acm list-certificates --region eu-west-1`)
 - [ ] Route 53 hosted zone ID obtained
 - [ ] IAM credentials configured in AWS CLI
-- [ ] Remote state S3 bucket and DynamoDB table created (bootstrap step above)
+- [ ] Remote state S3 bucket created and S3 lockfile permissions confirmed (bootstrap step above)
 - [ ] `terraform/environments/{dev,staging,prod}/terraform.tfvars` reviewed and tailored
 
 ### Terraform workflow
@@ -168,8 +193,8 @@ terraform output alb_dns_name
 ### Design
 
 - **Backend**: S3 with server-side encryption (KMS) and versioning enabled
-- **Locking**: DynamoDB table prevents concurrent applies
-- **State keys per environment**: `dev/terraform.tfstate`, `staging/terraform.tfstate`, `prod/terraform.tfstate`
+- **Locking**: S3 lockfiles prevent concurrent applies
+- **State keys per environment**: `dev/terraform.tfstate`, `staging/terraform.tfstate`, `prod/terraform.tfstate`; each state uses a matching S3 lockfile
 - **Isolation**: Separate state files eliminate cross-environment blast radius (no workspaces)
 
 ### State file contents
@@ -258,7 +283,8 @@ aws secretsmanager get-secret-value \
 Resources marked with `lifecycle { prevent_destroy = true }`:
 - RDS instance (prod) - prevents accidental database deletion
 - S3 state bucket - prevents loss of Terraform state
-- DynamoDB state lock table - prevents state lock loss
+
+S3 lockfiles are transient backend objects used to coordinate concurrent state operations. They are not Terraform resources and are not protected by `prevent_destroy`.
 
 If deletion is necessary, manually remove the lifecycle rule first:
 ```bash
@@ -305,6 +331,7 @@ terraform/
       backend.tf       # S3 key: dev/terraform.tfstate
       main.tf
       variables.tf
+      terraform.tfvars.example
       terraform.tfvars
       outputs.tf
     staging/
@@ -319,6 +346,8 @@ terraform/
 
 ### Per-environment values
 
+The environment drift is intentional and documented: dev and staging are low-cost, single-NAT, non-prod defaults; prod is the stricter, higher-availability baseline.
+
 | Setting | dev | staging | prod |
 |---|---|---|---|
 | VPC CIDR | 10.0.0.0/16 | 10.1.0.0/16 | 10.2.0.0/16 |
@@ -331,6 +360,10 @@ terraform/
 | RDS deletion protection | false | false | true |
 | Alarm email | dev-alerts@example.com | staging-alerts@example.com | prod-alerts@example.com |
 | Monthly budget | $500 | $1500 | $5000 |
+
+Use the environment-specific `terraform.tfvars.example` files as the source of truth for safe defaults. Do not commit real `terraform.tfvars` files with secrets or account-specific values.
+
+The VPC CIDR is an environment contract: dev uses `10.0.0.0/16`, staging uses `10.1.0.0/16`, and prod uses `10.2.0.0/16`. Keep subnet ranges inside the matching VPC range. Changing the CIDR of an existing environment can replace networking resources, so review the plan carefully before applying.
 
 ---
 

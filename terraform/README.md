@@ -111,6 +111,14 @@ Then replace the sample certificate ARN and alert address, and review the enviro
 
 For no-deployment validation, run `terraform init -backend=false` followed by `terraform validate` in each environment. A normal `terraform init` and `terraform plan` require an AWS account, configured credentials, and a bootstrapped S3 backend.
 
+## Operator Documentation
+
+- [Security and threat model](../docs/security-and-threat-model.md)
+- [Operations runbook](../docs/operations-runbook.md)
+- [CI operations guide](../docs/ci-operations.md)
+
+The CI workflow performs no `terraform apply` and does not receive AWS deployment credentials. It runs formatting, offline `terraform validate`, TFLint, and tfsec only. There is no plan job yet: a credential-free plan cannot reflect a real account or real state, so it is deferred until a remote-state backend and an OIDC-federated, read-only CI role are provisioned. Real plans must use AWS credentials and the S3 backend.
+
 ## Important Files
 
 - **backend.tf**: S3 state backend configuration. Replace the placeholder `terraform-state-<ACCOUNT_ID>` with your 12-digit AWS account ID exactly; example: `terraform-state-123456789012`.
@@ -122,5 +130,5 @@ For no-deployment validation, run `terraform init -backend=false` followed by `t
 
 This is infrastructure-as-code only, nothing has been deployed. Application deployment automation (Kubernetes manifests, CI/CD) is out of scope for this assessment.
 
-See [Improvement List](../README.md#improvement-list) in the root README for what's prioritized next (WAF, VPC Endpoints, CI/CD, DR, tag enforcement, etc.).
+See [Improvement List](../README.md#improvement-list) in the root README for what's prioritized next (WAF, VPC Endpoints, deployment automation, DR, tag enforcement, etc.).
 

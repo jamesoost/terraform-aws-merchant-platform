@@ -57,7 +57,6 @@ module "eks" {
 
   cluster_name              = "merchant-${var.environment}"
   kubernetes_version        = var.kubernetes_version
-  vpc_id                    = module.vpc.vpc_id
   private_app_subnet_ids    = module.vpc.private_app_subnet_ids
   eks_node_sg_id            = module.security_groups.eks_node_sg_id
   node_instance_types       = var.node_instance_types

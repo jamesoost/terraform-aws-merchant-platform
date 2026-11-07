@@ -1,3 +1,14 @@
+terraform {
+  required_version = ">= 1.10"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
 resource "aws_ecr_repository" "main" {
   for_each = toset(var.repository_names)
 

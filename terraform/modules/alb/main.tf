@@ -1,6 +1,22 @@
+terraform {
+  required_version = ">= 1.10"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
 # S3 bucket for ALB access logs
+locals {
+  account_id              = data.aws_caller_identity.current.account_id
+  elb_service_account_arn = data.aws_elb_service_account.main.arn
+}
+
 resource "aws_s3_bucket" "alb_logs" {
-  bucket              = "alb-logs-${var.environment}-${data.aws_caller_identity.current.account_id}"
+  bucket              = "alb-logs-${var.environment}-${local.account_id}"
   force_destroy       = false
   object_lock_enabled = false
 
@@ -47,7 +63,7 @@ resource "aws_s3_bucket_policy" "alb_logs" {
       {
         Effect = "Allow"
         Principal = {
-          AWS = data.aws_elb_service_account.main.arn
+          AWS = local.elb_service_account_arn
         }
         Action   = "s3:PutObject"
         Resource = "${aws_s3_bucket.alb_logs.arn}/*"
@@ -133,8 +149,7 @@ resource "aws_lb_listener" "http" {
   }
 }
 
-# Data source for ELB service account
+# Data sources used for real AWS-backed plans.
 data "aws_elb_service_account" "main" {}
 
-# Data source for current AWS account ID
 data "aws_caller_identity" "current" {}

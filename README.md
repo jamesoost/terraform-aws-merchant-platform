@@ -138,6 +138,15 @@ terraform -chdir=terraform/environments/prod validate
 
 An AWS-backed `terraform plan` cannot be run as part of no-account validation. Before committing or deploying infrastructure changes, run it with AWS credentials, a bootstrapped S3 state bucket, a real account ID in the backend, and environment-specific `terraform.tfvars` files. Review the plan especially carefully for potentially destructive networking changes such as the environment-specific VPC CIDRs. `plan` is review evidence only; it does not deploy resources.
 
+## Operations and CI
+
+- [Terraform operator guide](terraform/README.md) covers bootstrap, plan/apply, and state safety.
+- [Security and threat model](docs/security-and-threat-model.md) records trust boundaries and allowed traffic.
+- [Operations runbook](docs/operations-runbook.md) covers incidents, restore, and deployment validation.
+- [CI operations guide](docs/ci-operations.md) explains checks, plan artifacts, and failure triage.
+
+The GitHub Actions workflow runs formatting, validation, linting, security scans, and credential-free speculative plans. It never applies Terraform and has no deployment credentials.
+
 ## Deployment
 
 ### Pre-deployment checklist
@@ -381,7 +390,7 @@ What I'd add next, in priority order, and why:
 
 1. **AWS WAF on the ALB** - currently deferred; mandatory before real merchant traffic goes live (OWASP Top 10 protection).
 2. **VPC Endpoints** (S3 gateway, ECR/Secrets Manager interface) - removes NAT dependency for AWS API traffic, saves ~$1,200–1,800/year at scale.
-3. **CI/CD pipeline** - `terraform fmt/validate/plan` on PR, `tflint`/`checkov` static analysis, manual approval gate before prod apply.
+3. **Deployment automation** - add a separately governed apply workflow only after remote-state access, approvals, and rollback procedures are ready.
 4. **Automated ACM + Route 53** - replace the pre-existing-certificate assumption with `aws_acm_certificate` + DNS validation, removing a manual pre-deploy step.
 5. **Cross-region backup/DR** - replicate RDS snapshots to a second region for region-level outage recovery.
 6. **Tag enforcement** - Config rules/SCPs to reject untagged resources; add `Owner`/`CostCenter`.
